@@ -1,9 +1,9 @@
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::terminal;
 use polyp::{ServerMsg, UserInput};
-use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener, TcpStream};
 use std::process::Command;
-use tungstenite::Message;
+use tungstenite::{Message, WebSocket};
 
 const CTRL_C_EVENT: Event = Event::Key(KeyEvent {
     code: KeyCode::Char('c'),
@@ -43,33 +43,37 @@ fn main() -> anyhow::Result<()> {
             Event::Key(KeyEvent {
                 code: KeyCode::Char(c),
                 ..
-            }) => {
-                println!("polyp-cli-client: received keystroke ‘{}’\r", c);
-
-                let serialized = serde_json::to_vec(&UserInput::PressedKey(c))?;
-                server_websocket.write_message(Message::Binary(serialized))?;
-
-                println!("polyp-cli-client: wrote user input to server\r");
-
-                let server_msg = {
-                    let message = server_websocket.read_message()?;
-                    println!("polyp-cli-client: read message from server\r");
-
-                    if let Message::Binary(json) = message {
-                        serde_json::from_slice(&json)?
-                    } else {
-                        unreachable!();
-                    }
-                };
-
-                match server_msg {
-                    ServerMsg::NewText(text) => {
-                        let text = text.replace('\n', "\r\n");
-                        println!("polyp-cli-client: new text from server:\r\n{}\r", text);
-                    }
-                }
-            }
+            }) => handle_key(c, server_websocket)?,
             _ => {}
         }
     }
+}
+
+fn handle_key(c: char, server_websocket: WebSocket<TcpStream>) -> anyhow::Result<()> {
+    println!("polyp-cli-client: received keystroke ‘{}’\r", c);
+
+    let serialized = serde_json::to_vec(&UserInput::PressedKey(c))?;
+    server_websocket.write_message(Message::Binary(serialized))?;
+
+    println!("polyp-cli-client: wrote user input to server\r");
+
+    let server_msg = {
+        let message = server_websocket.read_message()?;
+        println!("polyp-cli-client: read message from server\r");
+
+        if let Message::Binary(json) = message {
+            serde_json::from_slice(&json)?
+        } else {
+            unreachable!();
+        }
+    };
+
+    match server_msg {
+        ServerMsg::NewText(text) => {
+            let text = text.replace('\n', "\r\n");
+            println!("polyp-cli-client: new text from server:\r\n{}\r", text);
+        }
+    }
+
+    Ok(())
 }

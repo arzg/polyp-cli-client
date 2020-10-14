@@ -1,6 +1,6 @@
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::terminal;
-use polyp::{ServerMsg, UserInput};
+use polyp::{Key, ServerMsg, UserInput};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener, TcpStream};
 use std::process::Command;
 use tungstenite::{Message, WebSocket};
@@ -31,7 +31,7 @@ fn main() -> anyhow::Result<()> {
     println!("polyp-cli-client: connected to server\r");
 
     loop {
-        match event::read()? {
+        let code = match event::read()? {
             CTRL_C_EVENT => {
                 eprintln!("polyp-cli-client: shutting down...\r");
 
@@ -40,19 +40,27 @@ fn main() -> anyhow::Result<()> {
 
                 return Ok(());
             }
-            Event::Key(KeyEvent {
-                code: KeyCode::Char(c),
-                ..
-            }) => handle_key(c, server_websocket)?,
+            Event::Key(KeyEvent { code, .. }) => code,
+
+            _ => continue,
+        };
+
+        match code {
+            KeyCode::Char(c) => handle_key(Key::Char(c), &mut server_websocket)?,
+            KeyCode::Backspace => handle_key(Key::Backspace, &mut server_websocket)?,
+            KeyCode::Up => handle_key(Key::Up, &mut server_websocket)?,
+            KeyCode::Down => handle_key(Key::Down, &mut server_websocket)?,
+            KeyCode::Left => handle_key(Key::Left, &mut server_websocket)?,
+            KeyCode::Right => handle_key(Key::Right, &mut server_websocket)?,
             _ => {}
         }
     }
 }
 
-fn handle_key(c: char, server_websocket: WebSocket<TcpStream>) -> anyhow::Result<()> {
-    println!("polyp-cli-client: received keystroke ‘{}’\r", c);
+fn handle_key(key: Key, server_websocket: &mut WebSocket<TcpStream>) -> anyhow::Result<()> {
+    println!("polyp-cli-client: received keystroke ‘{:?}’\r", key);
 
-    let serialized = serde_json::to_vec(&UserInput::PressedKey(c))?;
+    let serialized = serde_json::to_vec(&UserInput::PressedKey(key))?;
     server_websocket.write_message(Message::Binary(serialized))?;
 
     println!("polyp-cli-client: wrote user input to server\r");

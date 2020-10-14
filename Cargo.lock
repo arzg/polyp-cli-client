@@ -387,9 +387,9 @@ checksum = "d36492546b6af1463394d46f0c834346f31548646f6ba10849802c9c9a27ac33"
 
 [[package]]
 name = "polyp"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ed4114edf0f9136d3ca3c1b6f7fa3f112f716bf19c3f914941408990c34867d"
+checksum = "74ef75356358ef2ad6341876406f989988f2d8c413cfd439ac8e7b2a2562efd7"
 dependencies = [
  "serde",
 ]

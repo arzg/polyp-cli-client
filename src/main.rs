@@ -1,7 +1,8 @@
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::terminal;
+use polyp::protocol::Connection;
 use polyp::{Key, Ui, UserInput};
-use std::io::{BufRead, BufReader, Write};
+use std::io::{self, BufRead, Write};
 use std::process::{Command, Stdio};
 
 const CTRL_C_EVENT: Event = Event::Key(KeyEvent {
@@ -17,8 +18,7 @@ fn main() -> anyhow::Result<()> {
         .stdout(Stdio::piped())
         .spawn()?;
 
-    let mut server_stdin = server.stdin.unwrap();
-    let mut server_stdout = BufReader::new(server.stdout.unwrap());
+    let mut server_connection = Connection::new_from_child(server).unwrap();
 
     loop {
         let code = match event::read()? {
@@ -35,14 +35,12 @@ fn main() -> anyhow::Result<()> {
         };
 
         match code {
-            KeyCode::Char(c) => handle_key(Key::Char(c), &mut server_stdin, &mut server_stdout)?,
-            KeyCode::Backspace => {
-                handle_key(Key::Backspace, &mut server_stdin, &mut server_stdout)?
-            }
-            KeyCode::Up => handle_key(Key::Up, &mut server_stdin, &mut server_stdout)?,
-            KeyCode::Down => handle_key(Key::Down, &mut server_stdin, &mut server_stdout)?,
-            KeyCode::Left => handle_key(Key::Left, &mut server_stdin, &mut server_stdout)?,
-            KeyCode::Right => handle_key(Key::Right, &mut server_stdin, &mut server_stdout)?,
+            KeyCode::Char(c) => handle_key(Key::Char(c), &mut server_connection)?,
+            KeyCode::Backspace => handle_key(Key::Backspace, &mut server_connection)?,
+            KeyCode::Up => handle_key(Key::Up, &mut server_connection)?,
+            KeyCode::Down => handle_key(Key::Down, &mut server_connection)?,
+            KeyCode::Left => handle_key(Key::Left, &mut server_connection)?,
+            KeyCode::Right => handle_key(Key::Right, &mut server_connection)?,
             _ => {}
         }
     }
@@ -50,26 +48,20 @@ fn main() -> anyhow::Result<()> {
 
 fn handle_key(
     key: Key,
-    mut server_stdin: impl Write,
-    mut server_stdout: impl BufRead,
+    server_connection: &mut Connection<impl BufRead, impl Write>,
 ) -> anyhow::Result<()> {
     eprintln!("polyp-cli-client: received keystroke ‘{:?}’\r", key);
 
-    let serialized = serde_json::to_vec(&UserInput::PressedKey(key))?;
-    server_stdin.write_all(&serialized)?;
-    server_stdin.write_all(b"\n")?;
-
+    server_connection.send_message(&UserInput::PressedKey(key))?;
     eprintln!("polyp-cli-client: wrote user input to server\r");
 
-    let ui = {
-        let mut message = String::new();
-        server_stdout.read_line(&mut message)?;
-        eprintln!("polyp-cli-client: read message from server\r");
+    let ui = server_connection.recv_message()?;
+    eprintln!("polyp-cli-client: read message from server\r");
 
-        serde_json::from_str(&message)?
-    };
-
-    eprintln!("polyp-cli-client: UI from server:\r\n{}\r", format_ui(ui));
+    let mut stdout = io::stdout();
+    crossterm::queue!(stdout, terminal::Clear(terminal::ClearType::CurrentLine))?;
+    print!("\r{}", format_ui(ui));
+    stdout.flush()?;
 
     Ok(())
 }

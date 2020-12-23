@@ -13,12 +13,12 @@ const CTRL_C_EVENT: Event = Event::Key(KeyEvent {
 fn main() -> anyhow::Result<()> {
     terminal::enable_raw_mode()?;
 
-    let server = Command::new("polyp-server")
+    let mut server = Command::new("polyp-server")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()?;
 
-    let mut server_connection = Connection::new_from_child(server).unwrap();
+    let mut server_connection = Connection::new_from_child(&mut server).unwrap();
 
     loop {
         let code = match event::read()? {

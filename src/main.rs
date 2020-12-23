@@ -25,6 +25,8 @@ fn main() -> anyhow::Result<()> {
             CTRL_C_EVENT => {
                 eprintln!("polyp-cli-client: shutting down...\r");
                 server_connection.send_message(&ServerMsg::Shutdown)?;
+                server.wait()?;
+
                 terminal::disable_raw_mode()?;
 
                 return Ok(());

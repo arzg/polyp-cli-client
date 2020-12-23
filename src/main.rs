@@ -24,6 +24,7 @@ fn main() -> anyhow::Result<()> {
         let code = match event::read()? {
             CTRL_C_EVENT => {
                 eprintln!("polyp-cli-client: shutting down...\r");
+                server_connection.send_message(&ServerMsg::Shutdown)?;
                 terminal::disable_raw_mode()?;
 
                 return Ok(());

@@ -1,7 +1,7 @@
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::terminal;
 use polyp::protocol::Connection;
-use polyp::{Key, Ui, UserInput};
+use polyp::{Key, ServerMsg, Ui, UserInput};
 use std::io::{self, Write};
 use std::process::{Command, Stdio};
 
@@ -46,7 +46,7 @@ fn main() -> anyhow::Result<()> {
 
         eprintln!("polyp-cli-client: received keystroke ‘{:?}’\r", key);
 
-        server_connection.send_message(&UserInput::PressedKey(key))?;
+        server_connection.send_message(&ServerMsg::UserInput(UserInput::PressedKey(key)))?;
         eprintln!("polyp-cli-client: wrote user input to server\r");
 
         let ui = server_connection.recv_message()?;

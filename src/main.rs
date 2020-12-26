@@ -1,6 +1,6 @@
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::terminal;
-use polyp::protocol::Connection;
+use jsonl::Connection;
 use polyp::{Key, ServerMsg, Ui, UserInput};
 use std::io::{self, Write};
 use std::process::{Command, Stdio};
@@ -24,7 +24,7 @@ fn main() -> anyhow::Result<()> {
         let code = match event::read()? {
             CTRL_C_EVENT => {
                 eprintln!("polyp-cli-client: shutting down...\r");
-                server_connection.send_message(&ServerMsg::Shutdown)?;
+                server_connection.write(&ServerMsg::Shutdown)?;
                 server.wait()?;
 
                 terminal::disable_raw_mode()?;
@@ -49,10 +49,10 @@ fn main() -> anyhow::Result<()> {
 
         eprintln!("polyp-cli-client: received keystroke ‘{:?}’\r", key);
 
-        server_connection.send_message(&ServerMsg::UserInput(UserInput::PressedKey(key)))?;
+        server_connection.write(&ServerMsg::UserInput(UserInput::PressedKey(key)))?;
         eprintln!("polyp-cli-client: wrote user input to server\r");
 
-        let ui = server_connection.recv_message()?;
+        let ui = server_connection.read()?;
         eprintln!("polyp-cli-client: read UI from server\r");
 
         let mut stdout = io::stdout();
